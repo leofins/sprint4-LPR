@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# DBs
+*.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Debug images
+tmp_debug/
