@@ -1,188 +1,92 @@
-#!/usr/bin/env python3
-"""
-Módulo para realizar OCR (Optical Character Recognition) em imagens de placas.
-Utiliza a biblioteca Tesseract para extrair texto da imagem.
-"""
+'''
+Este módulo contém a classe OCREngine, responsável por processar imagens 
+e extrair texto de placas de veículos usando a biblioteca EasyOCR.
+'''
 
-import pytesseract
-import cv2
+import re
+import easyocr
 import numpy as np
-from typing import Optional, Tuple
 
+# Padrões de placas (Mercosul e modelos anteriores)
+PLATE_PATTERNS = [
+    re.compile(r"^[A-Z]{3}[0-9][A-Z][0-9]{2}$"),  # Mercosul (ABC1D23)
+    re.compile(r"^[A-Z]{3}[0-9]{4}$"),              # Padrão antigo (ABC1234)
+]
 
 class OCREngine:
-    """Classe para encapsular a funcionalidade de OCR."""
+    '''Motor de OCR para reconhecimento de placas de veículos usando EasyOCR.'''
 
-    def __init__(self, tesseract_cmd: Optional[str] = None):
-        """
-        Inicializa o motor OCR.
+    def __init__(self, languages=['pt']):
+        '''
+        Inicializa o leitor EasyOCR.
 
         Args:
-            tesseract_cmd: Caminho para o executável do Tesseract. Se None,
-                           pytesseract tentará encontrá-lo automaticamente.
-        """
-        if tesseract_cmd:
-            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
-
-        # Verifica se o Tesseract está configurado corretamente
+            languages (list): Lista de idiomas para o EasyOCR. Padrão é ['pt'].
+        '''
         try:
-            pytesseract.get_tesseract_version()
-            print("Tesseract OCR Engine inicializado com sucesso.")
-        except pytesseract.TesseractNotFoundError:
-            print("ERRO: Tesseract não encontrado ou não configurado no PATH.")
-            print("Por favor, instale o Tesseract e/ou configure a variável de ambiente TESSERACT_CMD.")
+            print("Inicializando o motor EasyOCR (isso pode levar um tempo na primeira execução)...")
+            self.reader = easyocr.Reader(languages, gpu=False)  # gpu=False para compatibilidade
+            print("✅ Motor EasyOCR inicializado com sucesso.")
+        except Exception as e:
+            print(f"❌ ERRO: Falha ao inicializar o EasyOCR. {e}")
+            print("Por favor, certifique-se de que as dependências (PyTorch, EasyOCR) estão instaladas corretamente.")
             raise
 
-    def extract_plate_text(self, image: np.ndarray) -> Tuple[Optional[str], float]:
-        """
-        Extrai o texto da placa de uma imagem usando OCR.
+    def normalize_by_position(self, text: str) -> str:
+        '''
+        Normaliza o texto da placa com base na posição dos caracteres,
+        corrigindo erros comuns de OCR (ex: I -> 1, O -> 0).
+        '''
+        mapping = { "I": "1", "O": "0", "S": "5", "G": "6", "Z": "2", "B": "8" }
+        
+        # Padrão Mercosul (LLLNLNN)
+        if len(text) == 7 and text[0:3].isalpha() and text[4].isalpha() and text[3].isdigit() and text[5:7].isdigit():
+            return "".join(
+                mapping.get(char, char) if i in [3, 5, 6] else char
+                for i, char in enumerate(text)
+            )
+        # Padrão antigo (LLLNNNN)
+        elif len(text) == 7 and text[0:3].isalpha() and text[3:7].isdigit():
+            return "".join(
+                mapping.get(char, char) if i >= 3 else char
+                for i, char in enumerate(text)
+            )
+        return text
+
+    def extract_plate_info(self, image: np.ndarray):
+        '''
+        Extrai o texto da placa de uma imagem, filtra e normaliza.
 
         Args:
-            image: Imagem da placa (formato OpenCV - numpy array).
+            image (np.ndarray): Imagem (frame da câmera) para processar.
 
         Returns:
-            Uma tupla contendo o texto da placa extraído e a confiança média.
-        """
-        if image is None or image.size == 0:
-            return None, 0.0
+            dict: Um dicionário com a placa, confiança e bounding box, ou None se nenhuma placa válida for encontrada.
+        '''
+        try:
+            results = self.reader.readtext(image)
+        except Exception as e:
+            print(f"❌ ERRO ao executar o readtext do EasyOCR: {e}")
+            return None
 
-        # Pré-processamento adicional para OCR (opcional, pode ser ajustado)
-        # Converter para escala de cinza se ainda não estiver
-        if len(image.shape) == 3:
-            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray_image = image
+        best_match = None
+        max_confidence = 0.0
 
-        # Aumentar contraste e nitidez (ex: usando CLAHE ou equalização de histograma)
-        # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        # enhanced_image = clahe.apply(gray_image)
-        enhanced_image = cv2.equalizeHist(gray_image)
+        for (bbox, text, prob) in results:
+            cleaned_text = "".join(filter(str.isalnum, text)).upper()
+            normalized_text = self.normalize_by_position(cleaned_text)
 
-        # Binarização para destacar caracteres
-        _, binary_image = cv2.threshold(enhanced_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        # Remover ruído (opcional)
-        # kernel = np.ones((1,1), np.uint8)
-        # denoised_image = cv2.erode(binary_image, kernel, iterations=1)
-        # denoised_image = cv2.dilate(denoised_image, kernel, iterations=1)
-        denoised_image = cv2.medianBlur(binary_image, 3)
-
-        # Tentativa 1: PSM 8 (uma única palavra) — bom para placas pequenas
-        base_config = r'--oem 3 -l eng -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-        custom_config_psm8 = base_config + ' --psm 8'
-
-        # Extrai o texto e os dados detalhados (incluindo confiança)
-        data = pytesseract.image_to_data(denoised_image, config=custom_config_psm8, output_type=pytesseract.Output.DICT)
-
-        # Se não obteve resultados razoáveis, tenta PSM 7 (uma linha)
-        confidences = []
-        text = ""
-
-        # Coleta os resultados iniciais
-        for i in range(len(data["text"])):
-            char = data["text"][i].strip()
-            conf_raw = data["conf"][i]
-            try:
-                conf = int(conf_raw)
-            except Exception:
-                # Às vezes o Tesseract retorna '-1' ou strings; ignorar valores inválidos
-                try:
-                    conf = int(float(conf_raw))
-                except Exception:
-                    conf = -1
-
-            if char and conf > 0:
-                text += char
-                confidences.append(conf)
-
-        if not confidences:
-            # Tenta PSM 7 (uma linha) como fallback
-            custom_config_psm7 = base_config + ' --psm 7'
-            print("Nenhuma confiança válida obtida com PSM8, tentando PSM7...")
-            data = pytesseract.image_to_data(denoised_image, config=custom_config_psm7, output_type=pytesseract.Output.DICT)
-
-        # Se chegou aqui, processa 'data' (seja do PSM8 válido ou do PSM7)
-        text = ""
-        confidences = []
-        for i in range(len(data["text"])):
-            char = data["text"][i].strip()
-            conf_raw = data["conf"][i]
-            try:
-                conf = int(conf_raw)
-            except Exception:
-                try:
-                    conf = int(float(conf_raw))
-                except Exception:
-                    conf = -1
-
-            if char and conf > 0:
-                text += char
-                confidences.append(conf)
-
-        # Calcula a confiança média
-        import numpy as _np
-        avg_confidence = _np.mean(confidences) / 100.0 if confidences else 0.0
-
-        # Limpa o texto extraído (remove espaços, caracteres indesejados)
-        cleaned_text = "".join(filter(str.isalnum, text)).upper()
-
-        # Logs para depuração
-        print(f"OCR raw text: '{text}' -> cleaned: '{cleaned_text}', avg_confidence={avg_confidence:.2f}")
-
-        return cleaned_text, float(avg_confidence)
-
-        text = ""
-        confidences = []
-
-        # Filtra caracteres e confianças
-        for i in range(len(data["text"])):
-            char = data["text"][i].strip()
-            conf = int(data["conf"][i])
-
-            if char and conf > 0:  # Ignora caracteres vazios ou com confiança 0
-                text += char
-                confidences.append(conf)
-
-        # Calcula a confiança média
-        avg_confidence = np.mean(confidences) / 100.0 if confidences else 0.0
-
-        # Limpa o texto extraído (remove espaços, caracteres indesejados)
-        cleaned_text = "".join(filter(str.isalnum, text)).upper()
-
-        return cleaned_text, avg_confidence
+            for pattern in PLATE_PATTERNS:
+                if pattern.match(normalized_text):
+                    if prob > max_confidence:
+                        max_confidence = prob
+                        best_match = {
+                            "placa": normalized_text,
+                            "confianca": prob,
+                            "bbox": bbox
+                        }
+                        
+        return best_match
 
 
-if __name__ == "__main__":
-    # Exemplo de uso:
-    # Certifique-se de ter o Tesseract instalado e configurado.
-    # No Ubuntu: sudo apt install tesseract-ocr
-    # No Windows: Baixar instalador em https://tesseract-ocr.github.io/tessdoc/Installation.html
-    # E adicionar ao PATH ou especificar tesseract_cmd.
 
-    try:
-        ocr_engine = OCREngine()
-
-        # Cria uma imagem de teste (simulando uma placa)
-        # Em um cenário real, você carregaria uma imagem de um arquivo ou da webcam
-        dummy_image = np.zeros((100, 300), dtype=np.uint8) + 255  # Imagem branca
-        cv2.putText(dummy_image, "ABC1234", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 5)
-
-        print("\nTestando OCR com imagem dummy:")
-        plate_text, confidence = ocr_engine.extract_plate_text(dummy_image)
-        print(f"Placa detectada: {plate_text}, Confiança: {confidence:.2f}")
-
-        # Teste com uma imagem mais complexa (simulando ruído)
-        noisy_image = np.zeros((100, 300), dtype=np.uint8) + 255
-        cv2.putText(noisy_image, "DEF5678", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 5)
-        # Adiciona ruído
-        noise = np.random.randint(0, 50, noisy_image.shape, dtype=np.uint8)
-        noisy_image = cv2.add(noisy_image, noise)
-
-        print("\nTestando OCR com imagem ruidosa:")
-        plate_text_noisy, confidence_noisy = ocr_engine.extract_plate_text(noisy_image)
-        print(f"Placa detectada: {plate_text_noisy}, Confiança: {confidence_noisy:.2f}")
-
-    except pytesseract.TesseractNotFoundError:
-        print("Não foi possível executar o exemplo de OCR. Tesseract não está instalado ou configurado.")
-    except Exception as e:
-        print(f"Ocorreu um erro inesperado: {e}")
