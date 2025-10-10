@@ -58,10 +58,20 @@ def insert_sample_data(cursor):
     """Insere dados de exemplo no banco de dados."""
     
     placas_exemplo = [
+        ('OTM2X22', 'AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Leonardo Henrique'),
+        ('OTM2022', 'NAO_AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Tiago Rosto'),
+        ('HQW5678', 'AUTORIZADO', 'Tesla', 'Azul', 'Gabriel Reno'),
+        ('DOK2A20', 'NAO_AUTORIZADO', 'Volkswagen Gol', 'Preto', 'Luis Felipe'),
         ('ABC1234', 'AUTORIZADA', 'Honda Civic', 'Prata', 'João Silva'),
+        ('ABC1B34', 'AUTORIZADA', 'Tesla', 'Prata', 'Paulo Vinicius'),
+        ('ABC1C34', 'AUTORIZADA', 'Toyota SW4', 'Prata', 'Maria Alzira'),
+        ('ABC1D34', 'AUTORIZADA', 'Toyota SW4', '', 'Daniel Rodrigo'),
+        ('XYZ5678', 'NAO_AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
+        ('DEF9G12', 'AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
+        ('QRT4E56', 'AUTORIZADO', 'Toyota SW4', '', 'Virgilio Santos'),
         ('DEF5678', 'AUTORIZADA', 'Toyota Corolla', 'Branco', 'Maria Santos'),
         ('GHI9012', 'AUTORIZADA', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
-        ('JKL3456', 'NAO_AUTORIZADA', 'Ford Ka', 'Vermelho', 'Ana Costa'),
+        ('JKL3456', 'NAO_AUTORIZADA', 'Ford Ka', 'Vermelho', 'Pedro Nunes'),
         ('MNO7890', 'AUTORIZADA', 'Chevrolet Onix', 'Preto', 'Carlos Ferreira'),
         ('PQR1357', 'AUTORIZADA', 'Hyundai HB20', 'Branco', 'Lucia Almeida'),
         ('STU2468', 'NAO_AUTORIZADA', 'Fiat Uno', 'Prata', 'Roberto Lima'),
@@ -101,3 +111,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# Terminal 1 cd /caminho/sistema_cancela
+# python3 database/init_db.py

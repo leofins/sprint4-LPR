@@ -1,32 +1,46 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtualenvs
+# --- Ambientes Virtuais ---
+# Ignora a pasta do seu ambiente virtual, que contém pacotes instalados
+# e é específica para cada máquina.
 .venv/
 venv/
 env/
 ENV/
 .env
 
-# macOS
-.DS_Store
+# --- Cache e Artefatos do Python ---
+# Ignora as pastas de cache que o Python cria automaticamente.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-# Logs
-*.log
-
-# DBs
-*.db
-
-# IDEs
+# --- Pastas de IDEs e Editores de Código ---
+# Ignora configurações específicas do seu editor (VSCode, PyCharm, etc).
 .vscode/
 .idea/
 
-# Build
+# --- Arquivos Temporários do Projeto ---
+# Ignora a imagem que é salva temporariamente pela câmera.
+snapshot.jpg
+
+# --- Banco de Dados ---
+# Está comentado para que quem baixar o projeto tenha o banco de dados com todas as placas.
+# database/cancela.db
+
+# --- macOS ---
+.DS_Store
+
+# --- Logs ---
+*.log
+
+# --- IDEs ---
+.vscode/
+.idea/
+
+# --- Build ---
 build/
 dist/
 *.egg-info/
 
-# Debug images
+# --- Debug images ---
 tmp_debug/
