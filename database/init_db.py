@@ -11,19 +11,23 @@ from datetime import datetime
 def create_database():
     """Cria o banco de dados e as tabelas necessárias."""
     
-    # Caminho do banco de dados
     db_path = os.path.join(os.path.dirname(__file__), 'cancela.db')
     
-    # Conecta ao banco de dados (cria se não existir)
+    # --- IMPORTANTE: REMOVE O BANCO ANTIGO SE EXISTIR ---
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        print(f"Banco de dados antigo removido em: {db_path}")
+    
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Cria a tabela de placas autorizadas
+    # --- CORREÇÃO 1 AQUI ---
+    # Adiciona 'INATIVA' à lista de status permitidos
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS placas_autorizadas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             placa TEXT UNIQUE NOT NULL,
-            status TEXT NOT NULL CHECK (status IN ('AUTORIZADA', 'NAO_AUTORIZADA')),
+            status TEXT NOT NULL CHECK (status IN ('AUTORIZADA', 'NAO_AUTORIZADA', 'INATIVA')),
             veiculo_modelo TEXT,
             veiculo_cor TEXT,
             cliente_nome TEXT,
@@ -32,7 +36,6 @@ def create_database():
         )
     ''')
     
-    # Cria a tabela de logs de acesso
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS logs_acesso (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,30 +48,31 @@ def create_database():
         )
     ''')
     
-    # Cria índices para melhor performance
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_placa ON placas_autorizadas(placa)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON logs_acesso(timestamp)')
     
     conn.commit()
-    print(f"Banco de dados criado com sucesso em: {db_path}")
+    print(f"Novo banco de dados criado com sucesso em: {db_path}")
     
     return conn, cursor
 
 def insert_sample_data(cursor):
     """Insere dados de exemplo no banco de dados."""
     
+    # --- CORREÇÃO 2 AQUI ---
+    # Corrigindo 'AUTORIZADO' para 'AUTORIZADA' e 'NAO_AUTORIZADO' para 'NAO_AUTORIZADA'
     placas_exemplo = [
-        ('OTM2X22', 'AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Leonardo Henrique'),
-        ('OTM2022', 'NAO_AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Tiago Rosto'),
-        ('HQW5678', 'AUTORIZADO', 'Tesla', 'Azul', 'Gabriel Reno'),
-        ('DOK2A20', 'NAO_AUTORIZADO', 'Volkswagen Gol', 'Preto', 'Luis Felipe'),
+        ('OTM2X22', 'AUTORIZADA', 'Volkswagen Gol', 'Azul', 'Leonardo Henrique'),
+        ('OTM2022', 'NAO_AUTORIZADA', 'Volkswagen Gol', 'Azul', 'Tiago Rosto'),
+        ('HQW5678', 'AUTORIZADA', 'Tesla', 'Azul', 'Gabriel Reno'),
+        ('DOK2A20', 'NAO_AUTORIZADA', 'Volkswagen Gol', 'Preto', 'Luis Felipe'),
         ('ABC1234', 'AUTORIZADA', 'Honda Civic', 'Prata', 'João Silva'),
         ('ABC1B34', 'AUTORIZADA', 'Tesla', 'Prata', 'Paulo Vinicius'),
         ('ABC1C34', 'AUTORIZADA', 'Toyota SW4', 'Prata', 'Maria Alzira'),
         ('ABC1D34', 'AUTORIZADA', 'Toyota SW4', '', 'Daniel Rodrigo'),
-        ('XYZ5678', 'NAO_AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
-        ('DEF9G12', 'AUTORIZADO', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
-        ('QRT4E56', 'AUTORIZADO', 'Toyota SW4', '', 'Virgilio Santos'),
+        ('XYZ5678', 'NAO_AUTORIZADA', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
+        ('DEF9G12', 'AUTORIZADA', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
+        ('QRT4E56', 'AUTORIZADA', 'Toyota SW4', '', 'Virgilio Santos'),
         ('DEF5678', 'AUTORIZADA', 'Toyota Corolla', 'Branco', 'Maria Santos'),
         ('GHI9012', 'AUTORIZADA', 'Volkswagen Gol', 'Azul', 'Pedro Oliveira'),
         ('JKL3456', 'NAO_AUTORIZADA', 'Ford Ka', 'Vermelho', 'Pedro Nunes'),
@@ -93,25 +97,12 @@ def insert_sample_data(cursor):
     print(f"Inseridos {len(placas_exemplo)} registros de exemplo.")
 
 def main():
-    """Função principal para inicializar o banco de dados."""
-    
     print("Inicializando banco de dados do sistema de cancela...")
-    
-    # Cria o banco de dados e tabelas
     conn, cursor = create_database()
-    
-    # Insere dados de exemplo
     insert_sample_data(cursor)
-    
-    # Confirma as alterações e fecha a conexão
     conn.commit()
     conn.close()
-    
     print("Inicialização do banco de dados concluída com sucesso!")
 
 if __name__ == "__main__":
     main()
-
-
-# Terminal 1 cd /caminho/sistema_cancela
-# python3 database/init_db.py

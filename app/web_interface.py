@@ -36,7 +36,6 @@ def get_logs():
 
 @app.route('/api/placas')
 def get_placas():
-    # CORREÇÃO: Chama o novo método para listar TODAS as placas
     placas = db_manager.listar_todas_as_placas()
     return jsonify({'success': True, 'data': placas})
 
@@ -62,11 +61,14 @@ def update_plate(placa):
     if sucesso: return jsonify({'success': True, 'message': 'Placa atualizada com sucesso'})
     return jsonify({'success': False, 'error': 'Falha ao atualizar a placa'}), 500
 
-@app.route('/api/delete-plate/<placa>', methods=['DELETE'])
-def delete_plate(placa):
-    sucesso = db_manager.remover_placa(placa)
-    if sucesso: return jsonify({'success': True, 'message': 'Placa removida com sucesso'})
-    return jsonify({'success': False, 'error': 'Falha ao remover a placa'}), 500
+# --- MUDANÇA NA API: De DELETE para PUT (Desativar) ---
+@app.route('/api/deactivate-plate/<placa>', methods=['PUT'])
+def deactivate_plate(placa):
+    # Chama o novo método 'desativar_placa'
+    sucesso = db_manager.desativar_placa(placa)
+    if sucesso: return jsonify({'success': True, 'message': 'Placa desativada com sucesso'})
+    return jsonify({'success': False, 'error': 'Falha ao desativar a placa'}), 500
+# --- FIM DA MUDANÇA ---
 
 # --- TEMPLATE HTML COMPLETO E CORRIGIDO ---
 template_html = '''
@@ -102,6 +104,8 @@ template_html = '''
         .badge { padding: 0.25rem 0.5rem; border-radius: 20px; font-size: 0.8rem; font-weight: 500; color: white; }
         .badge-success { background: #28a745; }
         .badge-danger { background: #dc3545; }
+        /* --- MUDANÇA NO CSS: Adicionando cor para status INATIVO --- */
+        .badge-secondary { background: #6c757d; } 
         .message { padding: 1rem; border-radius: 5px; margin-bottom: 1rem; }
         .error { background: #f8d7da; color: #721c24; }
         .success { background: #d4edda; color: #155724; }
@@ -135,7 +139,12 @@ template_html = '''
                 <form id="add-plate-form">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                         <div class="form-group"><label for="nova-placa">Placa:</label><input type="text" id="nova-placa" required style="text-transform: uppercase;"></div>
-                        <div class="form-group"><label for="status-placa">Status:</label><select id="status-placa" required><option value="AUTORIZADA">Autorizada</option><option value="NAO_AUTORIZADA">Não Autorizada</option></select></div>
+                        <div class="form-group"><label for="status-placa">Status:</label>
+                            <select id="status-placa" required>
+                                <option value="AUTORIZADA">Autorizada</option>
+                                <option value="NAO_AUTORIZADA">Não Autorizada</option>
+                                </select>
+                        </div>
                         <div class="form-group"><label for="modelo-veiculo">Modelo:</label><input type="text" id="modelo-veiculo"></div>
                         <div class="form-group"><label for="cor-veiculo">Cor:</label><input type="text" id="cor-veiculo"></div>
                         <div class="form-group"><label for="nome-cliente">Cliente:</label><input type="text" id="nome-cliente"></div>
@@ -159,7 +168,13 @@ template_html = '''
             <form id="edit-plate-form">
                 <input type="hidden" id="edit-placa-original">
                 <div class="form-group"><label>Placa:</label><input type="text" id="edit-placa" disabled class="form-control-plaintext"></div>
-                <div class="form-group"><label for="edit-status">Status:</label><select id="edit-status" required><option value="AUTORIZADA">Autorizada</option><option value="NAO_AUTORIZADA">Não Autorizada</option></select></div>
+                <div class="form-group"><label for="edit-status">Status:</label>
+                    <select id="edit-status" required>
+                        <option value="AUTORIZADA">Autorizada</option>
+                        <option value="NAO_AUTORIZADA">Não Autorizada</option>
+                        <option value="INATIVA">Inativa</option>
+                    </select>
+                </div>
                 <div class="form-group"><label for="edit-modelo">Modelo:</label><input type="text" id="edit-modelo"></div>
                 <div class="form-group"><label for="edit-cor">Cor:</label><input type="text" id="edit-cor"></div>
                 <div class="form-group"><label for="edit-cliente">Cliente:</label><input type="text" id="edit-cliente"></div>
@@ -175,11 +190,7 @@ template_html = '''
         });
         setInterval(loadAllData, 30000);
 
-        function loadAllData() {
-            loadStats();
-            loadLogs();
-            loadPlates();
-        }
+        function loadAllData() { loadStats(); loadLogs(); loadPlates(); }
 
         async function loadStats() {
             const result = await fetch('/api/stats').then(res => res.json());
@@ -212,9 +223,29 @@ template_html = '''
                 const plates = result.data;
                 if (plates.length === 0) { container.innerHTML = '<p>Nenhuma placa cadastrada.</p>'; return; }
                 let table = '<table class="table"><thead><tr><th>Placa</th><th>Status</th><th>Modelo</th><th>Cor</th><th>Cliente</th><th>Ações</th></tr></thead><tbody>';
+                
                 plates.forEach(p => {
-                    const statusBadge = p.status === 'AUTORIZADA' ? 'badge-success' : 'badge-danger';
-                    table += `<tr><td><strong>${p.placa}</strong></td><td><span class="badge ${statusBadge}">${p.status.replace('_', ' ')}</span></td><td>${p.veiculo_modelo || '-'}</td><td>${p.veiculo_cor || '-'}</td><td>${p.cliente_nome || '-'}</td><td><button class="btn btn-warning" onclick='openEditModal(${JSON.stringify(p)})'>Editar</button><button class="btn btn-danger" onclick="deletePlate('${p.placa}')">Remover</button></td></tr>`;
+                    // --- MUDANÇA NO JAVASCRIPT: Lógica de 3 status para o badge ---
+                    const statusBadge = p.status === 'AUTORIZADA' ? 'badge-success' : (p.status === 'NAO_AUTORIZADA' ? 'badge-danger' : 'badge-secondary');
+                    const statusText = p.status.replace('NAO_AUTORIZADA', 'NÃO AUTORIZADA');
+                    
+                    // Se a placa estiver inativa, não mostra o botão "Desativar"
+                    const actionButton = p.status !== 'INATIVA' ? 
+                        `<button class="btn btn-danger" onclick="deactivatePlate('${p.placa}')">Desativar</button>` :
+                        ''; // Vazio, pois ela já está desativada (pode ser reativada pelo "Editar")
+
+                    table += `
+                        <tr>
+                            <td><strong>${p.placa}</strong></td>
+                            <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                            <td>${p.veiculo_modelo || '-'}</td>
+                            <td>${p.veiculo_cor || '-'}</td>
+                            <td>${p.cliente_nome || '-'}</td>
+                            <td>
+                                <button class="btn btn-warning" onclick='openEditModal(${JSON.stringify(p)})'>Editar</button>
+                                ${actionButton}
+                            </td>
+                        </tr>`;
                 });
                 container.innerHTML = table + '</tbody></table>';
             } else { container.innerHTML = '<div class="message error">Erro ao carregar placas.</div>';}
@@ -232,11 +263,15 @@ template_html = '''
             modal.style.display = 'block';
         }
 
-        async function deletePlate(placa) {
-            if (!confirm(`Tem certeza que deseja remover a placa ${placa}?`)) return;
-            const response = await fetch(`/api/delete-plate/${placa}`, { method: 'DELETE' });
+        // --- MUDANÇA NO JAVASCRIPT: Renomeando a função e mudando a lógica ---
+        async function deactivatePlate(placa) {
+            if (!confirm(`Tem certeza que deseja DESATIVAR a placa ${placa}? Ela não será removida, apenas marcada como inativa.`)) return;
+            
+            // Chama a nova rota da API com o método PUT
+            const response = await fetch(`/api/deactivate-plate/${placa}`, { method: 'PUT' });
             const result = await response.json();
-            showMessage('plates-message', result.success, result.success ? 'Placa removida com sucesso!' : result.error);
+            
+            showMessage('plates-message', result.success, result.success ? 'Placa desativada com sucesso!' : result.error);
             if(result.success) loadAllData();
         }
         

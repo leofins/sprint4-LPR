@@ -14,7 +14,7 @@ class ArduinoController:
         """
         Inicializa o controlador do Arduino.
         
-        Args:
+        Args: 
             port: Porta serial onde o Arduino está conectado (ex: 
                   '/dev/ttyACM0' no Linux, 'COM3' no Windows).
             baud_rate: Taxa de transmissão serial (deve ser a mesma configurada no Arduino).

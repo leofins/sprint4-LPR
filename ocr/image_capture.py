@@ -80,9 +80,8 @@ class ImageCaptureProcessor:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.equalizeHist(gray)
 
-        # --- MUDANÇA PRINCIPAL AQUI ---
-        # Removemos o 'maxSize' para detectar placas grandes (de perto)
-        # e diminuímos 'minNeighbors' para deixar a detecção mais flexível.
+        # Removi o 'maxSize' para detectar placas grandes (de perto)
+        # e diminui 'minNeighbors' para deixar a detecção mais flexível.
         plates = self.plate_cascade.detectMultiScale(
             gray, 
             scaleFactor=1.1, 
@@ -90,7 +89,6 @@ class ImageCaptureProcessor:
             minSize=(50, 20)
             # maxSize foi removido
         )
-        # --- FIM DA MUDANÇA ---
 
         detected_plate_info = None
         max_confidence = 0.0
